@@ -190,6 +190,7 @@ export function PromptEditor({ nodeId }: { nodeId: string }) {
       code: item.code,
       prompt: item.prompt
     });
+    setPrompt(item.prompt);
   };
 
   return (
@@ -318,7 +319,11 @@ export function PromptEditor({ nodeId }: { nodeId: string }) {
                 >
                   <div 
                     className="flex justify-between items-start cursor-pointer"
-                    onClick={() => setExpandedHistoryId(expandedHistoryId === item.id ? null : item.id)}
+                    onClick={() => {
+                      setExpandedHistoryId(expandedHistoryId === item.id ? null : item.id);
+                      setPrompt(item.prompt);
+                    }}
+                    title="Click to copy to prompt input & expand"
                   >
                     <div className="text-[10px] text-slate-700 dark:text-slate-300 line-clamp-2 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors flex-1 pr-2">
                       {item.prompt}
