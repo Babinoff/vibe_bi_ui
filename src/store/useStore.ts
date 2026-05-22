@@ -57,6 +57,9 @@ type AppState = {
   selectedNodeId: string | null;
   setSelectedNodeId: (id: string | null) => void;
 
+  selectedDataValue: string | null;
+  setSelectedDataValue: (val: string | null) => void;
+
   widgets: WidgetConfig[];
   addWidget: (widget: WidgetConfig) => void;
   updateWidget: (id: string, data: Partial<WidgetConfig>) => void;
@@ -138,6 +141,11 @@ export const useStore = create<AppState>()(
         set({ selectedNodeId: id });
       },
 
+      selectedDataValue: null,
+      setSelectedDataValue: (val: string | null) => {
+        set({ selectedDataValue: val });
+      },
+
       widgets: [],
       addWidget: (widget: WidgetConfig) => {
         set({ widgets: [...get().widgets, widget] });
@@ -173,6 +181,7 @@ export const useStore = create<AppState>()(
           dataSources: workspace.dataSources || [],
           widgets: workspace.widgets || [],
           selectedNodeId: null,
+          selectedDataValue: null,
         });
       },
     }),

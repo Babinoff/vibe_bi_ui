@@ -9,6 +9,8 @@ export function DashboardEditor() {
   const updateWidget = useStore(s => s.updateWidget);
   const removeWidget = useStore(s => s.removeWidget);
   const isPresentationMode = useStore(s => s.isPresentationMode);
+  const selectedDataValue = useStore(s => s.selectedDataValue);
+  const setSelectedDataValue = useStore(s => s.setSelectedDataValue);
 
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -134,15 +136,36 @@ export function DashboardEditor() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(widget.data.data || []).slice(0, 100).map((row: any[], rowIndex: number) => (
-                        <tr key={rowIndex} className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                          {row.map((cell: any, cellIndex: number) => (
-                            <td key={cellIndex} className="p-2 border-b border-r border-slate-200 dark:border-slate-700 whitespace-nowrap text-slate-600 dark:text-slate-300">
-                              {String(cell)}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
+                      {(widget.data.data || []).slice(0, 100).map((row: any[], rowIndex: number) => {
+                        const isRowSelected = selectedDataValue !== null && row.some(cell => String(cell) === selectedDataValue);
+                        return (
+                          <tr 
+                            key={rowIndex} 
+                            className={`transition-colors ${isRowSelected ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                          >
+                            {row.map((cell: any, cellIndex: number) => {
+                              const cellStr = String(cell);
+                              const isCellSelected = selectedDataValue === cellStr;
+                              return (
+                                <td 
+                                  key={cellIndex} 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedDataValue(selectedDataValue === cellStr ? null : cellStr);
+                                  }}
+                                  className={`p-2 border-b border-r border-slate-200 dark:border-slate-700 whitespace-nowrap cursor-pointer ${
+                                    isCellSelected 
+                                      ? 'text-blue-700 dark:text-blue-300 font-medium' 
+                                      : 'text-slate-600 dark:text-slate-300'
+                                  }`}
+                                >
+                                  {cellStr}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                   {(widget.data.data || []).length > 100 && (

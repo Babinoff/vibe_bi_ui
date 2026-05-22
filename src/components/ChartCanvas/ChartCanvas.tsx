@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadLibrary, libraries } from '../../services/chartLibs';
 import { ChartConfig } from '../../types/visualization';
+import { useStore } from '../../store/useStore';
 
 interface ChartCanvasProps {
   libraryId: string;
@@ -14,6 +15,9 @@ export function ChartCanvas({ libraryId, config, className = '' }: ChartCanvasPr
   const chartInstanceRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedDataValue = useStore(s => s.selectedDataValue);
+  const setSelectedDataValue = useStore(s => s.setSelectedDataValue);
 
   useEffect(() => {
     let mounted = true;
@@ -43,6 +47,14 @@ export function ChartCanvas({ libraryId, config, className = '' }: ChartCanvasPr
         chart.setOption(config.data);
         chartInstanceRef.current = chart;
         
+        chart.on('click', (params: any) => {
+          const valStr = String(params.name || (Array.isArray(params.value) ? params.value[0] : params.value));
+          if (valStr) {
+            const currentVal = useStore.getState().selectedDataValue;
+            useStore.getState().setSelectedDataValue(currentVal === valStr ? null : valStr);
+          }
+        });
+
         const handleResize = () => chart.resize();
         window.addEventListener('resize', handleResize);
         
@@ -66,7 +78,23 @@ export function ChartCanvas({ libraryId, config, className = '' }: ChartCanvasPr
         chartInstanceRef.current = new Chart(canvasRef.current, {
           type: config.type,
           data: config.data,
-          options: { ...config.options, responsive: true, maintainAspectRatio: false }
+          options: { 
+            ...config.options, 
+            responsive: true, 
+            maintainAspectRatio: false,
+            onClick: (event: any, elements: any[]) => {
+              if (elements && elements.length > 0) {
+                const firstElement = elements[0];
+                const index = firstElement.index;
+                const label = chartInstanceRef.current.data.labels[index];
+                if (label !== undefined) {
+                  const valStr = String(label);
+                  const currentVal = useStore.getState().selectedDataValue;
+                  useStore.getState().setSelectedDataValue(currentVal === valStr ? null : valStr);
+                }
+              }
+            }
+          }
         });
         return () => {
           if (chartInstanceRef.current) chartInstanceRef.current.destroy();
@@ -74,16 +102,28 @@ export function ChartCanvas({ libraryId, config, className = '' }: ChartCanvasPr
       }
       else if (libraryId === 'plotly' && containerRef.current) {
         const Plotly = (window as any).Plotly;
-        Plotly.newPlot(containerRef.current, config.data, { ...config.options, autosize: true }, { responsive: true });
+        const plotlyDiv = containerRef.current;
+        Plotly.newPlot(plotlyDiv, config.data, { ...config.options, autosize: true }, { responsive: true });
         
-        const resizeObserver = new ResizeObserver(() => {
-          Plotly.Plots.resize(containerRef.current);
+        (plotlyDiv as any).on('plotly_click', (data: any) => {
+          if (data.points && data.points.length > 0) {
+            const point = data.points[0];
+            const valStr = String(point.label || point.x);
+            if (valStr && valStr !== 'undefined') {
+              const currentVal = useStore.getState().selectedDataValue;
+              useStore.getState().setSelectedDataValue(currentVal === valStr ? null : valStr);
+            }
+          }
         });
-        resizeObserver.observe(containerRef.current);
+
+        const resizeObserver = new ResizeObserver(() => {
+          Plotly.Plots.resize(plotlyDiv);
+        });
+        resizeObserver.observe(plotlyDiv);
         
         return () => {
           resizeObserver.disconnect();
-          Plotly.purge(containerRef.current);
+          Plotly.purge(plotlyDiv);
         };
       }
     } catch (err: any) {
@@ -91,6 +131,23 @@ export function ChartCanvas({ libraryId, config, className = '' }: ChartCanvasPr
       setError(err.message);
     }
   }, [isLoaded, config, libraryId]);
+
+  useEffect(() => {
+    if (!isLoaded || !chartInstanceRef.current) return;
+
+    if (libraryId === 'echarts') {
+      const chart = chartInstanceRef.current;
+      chart.dispatchAction({ type: 'downplay' });
+      if (selectedDataValue !== null) {
+        chart.dispatchAction({
+          type: 'highlight',
+          name: selectedDataValue,
+        });
+      }
+    }
+    // Note: Chart.js and Plotly require more complex manual dataset updates for highlighting, 
+    // which might require deep cloning and re-rendering config. ECharts supports it natively.
+  }, [selectedDataValue, isLoaded, libraryId]);
 
   if (error) {
     return <div className={`flex items-center justify-center text-red-500 dark:text-red-400 text-xs h-full w-full ${className}`}>{error}</div>;
