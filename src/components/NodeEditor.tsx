@@ -157,8 +157,10 @@ function FlowEditor() {
     }
   };
 
+  const memoizedNodeTypes = React.useMemo(() => nodeTypes, []);
+
   return (
-    <div className="w-full h-full">
+    <div className="absolute inset-0">
       <input 
         type="file" 
         accept=".json" 
@@ -174,7 +176,7 @@ function FlowEditor() {
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
-        nodeTypes={nodeTypes}
+        nodeTypes={memoizedNodeTypes}
         fitView
         colorMode={theme}
         className="bg-slate-50 dark:bg-slate-950 transition-colors"

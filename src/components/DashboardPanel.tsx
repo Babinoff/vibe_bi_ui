@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import { ChartCanvas } from './ChartCanvas/ChartCanvas';
 import { libraries } from '../services/chartLibs';
 import { DashboardEditor } from './DashboardEditor/DashboardEditor';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
 export function DashboardPanel() {
@@ -47,17 +47,12 @@ export function DashboardPanel() {
       element.style.height = `${element.scrollHeight}px`;
       element.style.overflow = 'visible';
 
-      const canvas = await html2canvas(element, {
+      const dataUrl = await toPng(element, {
         backgroundColor: theme === 'dark' ? '#020617' : '#ffffff',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
+        pixelRatio: 2,
         width: element.scrollWidth,
         height: element.scrollHeight,
       });
-      
-      const dataUrl = canvas.toDataURL('image/png');
       
       element.style.height = originalHeight;
       element.style.overflow = originalOverflow;
