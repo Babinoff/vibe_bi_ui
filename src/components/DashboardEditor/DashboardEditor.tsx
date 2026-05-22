@@ -16,9 +16,10 @@ export function DashboardEditor() {
   
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [resizingId, setResizingId] = useState<string | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [resizeStart, setResizeStart] = useState({ w: 0, h: 0, x: 0, y: 0 });
+  const [resizeStart, setResizeStart] = useState({ w: 0, h: 0, mouseX: 0, mouseY: 0, widgetX: 0, widgetY: 0 });
 
   const GRID_SIZE = 20;
 
@@ -57,20 +58,48 @@ export function DashboardEditor() {
         newY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
 
         updateWidget(draggingId, { x: Math.max(0, newX), y: Math.max(0, newY) });
-      } else if (resizingId) {
-        let newWidth = resizeStart.w + (e.clientX - resizeStart.x);
-        let newHeight = resizeStart.h + (e.clientY - resizeStart.y);
+      } else if (resizingId && resizeHandle) {
+        const deltaX = e.clientX - resizeStart.mouseX;
+        const deltaY = e.clientY - resizeStart.mouseY;
 
-        // Snap to grid
-        newWidth = Math.round(newWidth / GRID_SIZE) * GRID_SIZE;
-        newHeight = Math.round(newHeight / GRID_SIZE) * GRID_SIZE;
+        let newWidth = resizeStart.w;
+        let newHeight = resizeStart.h;
+        let newX = resizeStart.widgetX;
+        let newY = resizeStart.widgetY;
 
         const widget = widgets.find(w => w.id === resizingId);
+        const minWidth = 200;
         const minHeight = widget?.type === 'text' ? 40 : 150;
 
+        if (resizeHandle.includes('e')) {
+          newWidth = Math.round((resizeStart.w + deltaX) / GRID_SIZE) * GRID_SIZE;
+          newWidth = Math.max(minWidth, newWidth);
+        } else if (resizeHandle.includes('w')) {
+          let targetX = resizeStart.widgetX + deltaX;
+          targetX = Math.round(targetX / GRID_SIZE) * GRID_SIZE;
+          targetX = Math.max(0, targetX);
+          targetX = Math.min(targetX, resizeStart.widgetX + resizeStart.w - minWidth);
+          newX = targetX;
+          newWidth = resizeStart.widgetX + resizeStart.w - newX;
+        }
+
+        if (resizeHandle.includes('s')) {
+          newHeight = Math.round((resizeStart.h + deltaY) / GRID_SIZE) * GRID_SIZE;
+          newHeight = Math.max(minHeight, newHeight);
+        } else if (resizeHandle.includes('n')) {
+          let targetY = resizeStart.widgetY + deltaY;
+          targetY = Math.round(targetY / GRID_SIZE) * GRID_SIZE;
+          targetY = Math.max(0, targetY);
+          targetY = Math.min(targetY, resizeStart.widgetY + resizeStart.h - minHeight);
+          newY = targetY;
+          newHeight = resizeStart.widgetY + resizeStart.h - newY;
+        }
+
         updateWidget(resizingId, { 
-          width: Math.max(200, newWidth), 
-          height: Math.max(minHeight, newHeight) 
+          width: newWidth, 
+          height: newHeight,
+          x: newX,
+          y: newY
         });
       }
     };
@@ -78,6 +107,7 @@ export function DashboardEditor() {
     const handleMouseUp = () => {
       setDraggingId(null);
       setResizingId(null);
+      setResizeHandle(null);
     };
 
     if (draggingId || resizingId) {
@@ -105,11 +135,12 @@ export function DashboardEditor() {
     }
   };
 
-  const handleResizeStart = (e: React.MouseEvent, id: string, w: number, h: number) => {
+  const handleResizeStart = (e: React.MouseEvent, id: string, handle: string, w: number, h: number, widgetX: number, widgetY: number) => {
     if (isPresentationMode) return;
     e.stopPropagation();
     setResizingId(id);
-    setResizeStart({ w, h, x: e.clientX, y: e.clientY });
+    setResizeHandle(handle);
+    setResizeStart({ w, h, mouseX: e.clientX, mouseY: e.clientY, widgetX, widgetY });
   };
 
   return (
@@ -185,25 +216,25 @@ export function DashboardEditor() {
                     </thead>
                     <tbody>
                       {(widget.data.data || []).slice(0, 100).map((row: any[], rowIndex: number) => {
+                        const rowKeyStr = String(row[0]);
                         const isRowSelected = selectedDataValue !== null && row.some(cell => String(cell) === selectedDataValue);
                         return (
                           <tr 
                             key={rowIndex} 
-                            className={`transition-colors ${isRowSelected ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDataValue(selectedDataValue === rowKeyStr ? null : rowKeyStr);
+                            }}
+                            className={`transition-colors cursor-pointer ${isRowSelected ? 'bg-blue-100 dark:bg-blue-600/40' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
                           >
                             {row.map((cell: any, cellIndex: number) => {
                               const cellStr = String(cell);
-                              const isCellSelected = selectedDataValue === cellStr;
                               return (
                                 <td 
                                   key={cellIndex} 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedDataValue(selectedDataValue === cellStr ? null : cellStr);
-                                  }}
-                                  className={`p-2 border-b border-r border-slate-200 dark:border-slate-700 whitespace-nowrap cursor-pointer ${
-                                    isCellSelected 
-                                      ? 'text-blue-700 dark:text-blue-300 font-medium' 
+                                  className={`p-2 border-b border-r border-slate-200 dark:border-slate-700 whitespace-nowrap ${
+                                    isRowSelected
+                                      ? 'text-slate-800 dark:text-slate-200 font-medium'
                                       : 'text-slate-600 dark:text-slate-300'
                                   }`}
                                 >
@@ -241,16 +272,25 @@ export function DashboardEditor() {
             )}
           </div>
 
-          {/* Resizer */}
+          {/* Resizers */}
           {!isPresentationMode && (
-            <div 
-              className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
-              onMouseDown={(e) => handleResizeStart(e, widget.id, widget.width, widget.height)}
-            >
-              <svg viewBox="0 0 10 10" className="w-full h-full text-slate-400 dark:text-slate-500 opacity-50">
-                <path d="M 8 10 L 10 10 L 10 8 M 5 10 L 10 10 L 10 5 M 2 10 L 10 10 L 10 2" fill="none" stroke="currentColor" strokeWidth="1" />
-              </svg>
-            </div>
+            <>
+              {/* Edges */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 cursor-n-resize z-20" onMouseDown={(e) => handleResizeStart(e, widget.id, 'n', widget.width, widget.height, widget.x, widget.y)} />
+              <div className="absolute bottom-0 left-0 right-0 h-1.5 cursor-s-resize z-20" onMouseDown={(e) => handleResizeStart(e, widget.id, 's', widget.width, widget.height, widget.x, widget.y)} />
+              <div className="absolute top-0 bottom-0 left-0 w-1.5 cursor-w-resize z-20" onMouseDown={(e) => handleResizeStart(e, widget.id, 'w', widget.width, widget.height, widget.x, widget.y)} />
+              <div className="absolute top-0 bottom-0 right-0 w-1.5 cursor-e-resize z-20" onMouseDown={(e) => handleResizeStart(e, widget.id, 'e', widget.width, widget.height, widget.x, widget.y)} />
+              
+              {/* Corners */}
+              <div className="absolute top-0 left-0 w-3 h-3 cursor-nw-resize z-30" onMouseDown={(e) => handleResizeStart(e, widget.id, 'nw', widget.width, widget.height, widget.x, widget.y)} />
+              <div className="absolute top-0 right-0 w-3 h-3 cursor-ne-resize z-30" onMouseDown={(e) => handleResizeStart(e, widget.id, 'ne', widget.width, widget.height, widget.x, widget.y)} />
+              <div className="absolute bottom-0 left-0 w-3 h-3 cursor-sw-resize z-30" onMouseDown={(e) => handleResizeStart(e, widget.id, 'sw', widget.width, widget.height, widget.x, widget.y)} />
+              <div className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-30 flex items-end justify-end" onMouseDown={(e) => handleResizeStart(e, widget.id, 'se', widget.width, widget.height, widget.x, widget.y)}>
+                <svg viewBox="0 0 10 10" className="w-3 h-3 text-slate-400 dark:text-slate-500 opacity-50 pointer-events-none mb-0.5 mr-0.5">
+                  <path d="M 8 10 L 10 10 L 10 8 M 5 10 L 10 10 L 10 5 M 2 10 L 10 10 L 10 2" fill="none" stroke="currentColor" strokeWidth="1" />
+                </svg>
+              </div>
+            </>
           )}
         </div>
       ))}
