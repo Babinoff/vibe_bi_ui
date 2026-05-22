@@ -16,10 +16,32 @@ export function DashboardEditor() {
   
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [resizingId, setResizingId] = useState<string | null>(null);
+  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ w: 0, h: 0, x: 0, y: 0 });
 
   const GRID_SIZE = 20;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isPresentationMode) return;
+      
+      // If we have a selected widget and it's NOT actively being typed into
+      if (selectedWidgetId && (e.key === 'Backspace' || e.key === 'Delete')) {
+        // Check if the active element is an input/textarea
+        const activeElement = document.activeElement;
+        const isTyping = activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA';
+        
+        if (!isTyping) {
+          removeWidget(selectedWidgetId);
+          setSelectedWidgetId(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedWidgetId, isPresentationMode, removeWidget]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -27,8 +49,8 @@ export function DashboardEditor() {
       const rect = containerRef.current.getBoundingClientRect();
 
       if (draggingId) {
-        let newX = e.clientX - rect.left - dragOffset.x;
-        let newY = e.clientY - rect.top - dragOffset.y;
+        let newX = e.clientX - rect.left + containerRef.current.scrollLeft - dragOffset.x;
+        let newY = e.clientY - rect.top + containerRef.current.scrollTop - dragOffset.y;
         
         // Snap to grid
         newX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
@@ -43,9 +65,12 @@ export function DashboardEditor() {
         newWidth = Math.round(newWidth / GRID_SIZE) * GRID_SIZE;
         newHeight = Math.round(newHeight / GRID_SIZE) * GRID_SIZE;
 
+        const widget = widgets.find(w => w.id === resizingId);
+        const minHeight = widget?.type === 'text' ? 40 : 150;
+
         updateWidget(resizingId, { 
           width: Math.max(200, newWidth), 
-          height: Math.max(150, newHeight) 
+          height: Math.max(minHeight, newHeight) 
         });
       }
     };
@@ -69,8 +94,15 @@ export function DashboardEditor() {
   const handleDragStart = (e: React.MouseEvent, id: string, x: number, y: number) => {
     if (isPresentationMode) return;
     e.stopPropagation();
-    setDraggingId(id);
-    setDragOffset({ x: e.clientX - x, y: e.clientY - y });
+    
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setDraggingId(id);
+      setDragOffset({ 
+        x: e.clientX - rect.left + containerRef.current.scrollLeft - x, 
+        y: e.clientY - rect.top + containerRef.current.scrollTop - y 
+      });
+    }
   };
 
   const handleResizeStart = (e: React.MouseEvent, id: string, w: number, h: number) => {
@@ -84,12 +116,23 @@ export function DashboardEditor() {
     <div 
       id="dashboard-editor-scroll-area"
       ref={containerRef}
+      onClick={() => setSelectedWidgetId(null)}
       className={`relative w-full h-full overflow-auto ${!isPresentationMode ? 'bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiNjYmQ1ZTEiLz48L3N2Zz4=")] dark:bg-[url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiMzMzQxNTUiLz48L3N2Zz4=")]' : 'bg-slate-50 dark:bg-slate-950'}`}
     >
       {widgets.map(widget => (
         <div
           key={widget.id}
-          className={`absolute bg-white dark:bg-slate-900 border ${isPresentationMode ? 'border-slate-200 dark:border-slate-800' : 'border-slate-300 dark:border-slate-700'} rounded-lg shadow-xl flex flex-col overflow-hidden transition-shadow ${draggingId === widget.id ? 'shadow-2xl z-50 opacity-90' : 'z-10 hover:z-20'}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isPresentationMode) setSelectedWidgetId(widget.id);
+          }}
+          className={`absolute bg-white dark:bg-slate-900 border ${
+            selectedWidgetId === widget.id && !isPresentationMode
+              ? 'border-blue-500 dark:border-blue-400 ring-1 ring-blue-500/50' 
+              : isPresentationMode 
+                ? 'border-slate-200 dark:border-slate-800' 
+                : 'border-slate-300 dark:border-slate-700'
+          } rounded-lg shadow-xl flex flex-col overflow-hidden transition-shadow ${draggingId === widget.id ? 'shadow-2xl z-50 opacity-90' : 'z-10 hover:z-20'}`}
           style={{
             left: widget.x,
             top: widget.y,
@@ -98,7 +141,7 @@ export function DashboardEditor() {
           }}
         >
           {/* Header */}
-          {!isPresentationMode && (
+          {!isPresentationMode && widget.type !== 'text' && (
             <div 
               className="h-8 bg-slate-100/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-2 cursor-move shrink-0"
               onMouseDown={(e) => handleDragStart(e, widget.id, widget.x, widget.y)}
@@ -107,20 +150,25 @@ export function DashboardEditor() {
                 <GripHorizontal size={14} />
                 <span className="text-xs font-semibold">{widget.type === 'chart' ? 'Chart Widget' : widget.type === 'table' ? 'Table Widget' : 'Text Widget'}</span>
               </div>
-              {widget.type !== 'chart' && widget.type !== 'table' && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); removeWidget(widget.id); }}
-                  className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                  title="Remove widget"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
+              <button 
+                onClick={(e) => { e.stopPropagation(); removeWidget(widget.id); }}
+                className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                title="Remove widget"
+              >
+                <Trash2 size={14} />
+              </button>
             </div>
           )}
 
           {/* Content */}
-          <div className="flex-1 p-2 relative overflow-hidden flex flex-col">
+          <div 
+            className={`flex-1 p-2 relative overflow-hidden flex flex-col ${!isPresentationMode && widget.type === 'text' ? 'cursor-move' : ''}`}
+            onMouseDown={(e) => {
+              if (!isPresentationMode && widget.type === 'text') {
+                handleDragStart(e, widget.id, widget.x, widget.y);
+              }
+            }}
+          >
             {widget.type === 'chart' && widget.libraryId && (
               <ChartCanvas libraryId={widget.libraryId} config={widget.data} className="w-full h-full" />
             )}
@@ -185,7 +233,8 @@ export function DashboardEditor() {
                 <textarea
                   value={widget.data}
                   onChange={(e) => updateWidget(widget.id, { data: e.target.value })}
-                  className="w-full h-full bg-transparent text-slate-800 dark:text-slate-200 text-sm resize-none focus:outline-none custom-scrollbar"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="w-full h-full bg-transparent text-slate-800 dark:text-slate-200 text-sm resize-none focus:outline-none custom-scrollbar cursor-text"
                   placeholder="Enter text here (Markdown supported)..."
                 />
               )
