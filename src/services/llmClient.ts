@@ -90,12 +90,11 @@ ${context.previousTransforms && context.previousTransforms.length > 0 ?
 
   static async generateChartConfig(
     libraryId: string,
-    chartType: string,
     headers: string[],
     data: any[][],
     prompt: string,
     onLog?: (msg: string) => void
-  ): Promise<any> {
+  ): Promise<{ chartType: string, config: any }> {
     const storeState = useStore.getState();
     const provider = storeState.llmProvider;
     const mistralToken = storeState.mistralToken;
@@ -105,19 +104,21 @@ ${context.previousTransforms && context.previousTransforms.length > 0 ?
 
     let libInstruction = '';
     if (libraryId === 'echarts') {
-      libInstruction = `Generate a valid ECharts option object. The root object should be the options (e.g., { xAxis: {...}, yAxis: {...}, series: [...] }).
+      libInstruction = `For the 'config' property, generate a valid ECharts option object. The root of this config should be the options (e.g., { xAxis: {...}, yAxis: {...}, series: [...] }).
 IMPORTANT: DO NOT hardcode the actual data in the JSON. You MUST use the exact string placeholder "$dataset" for the \`dataset.source\` property (e.g. \`dataset: { source: "$dataset" }\`). We will inject the 2D data array there. Use \`encode\` in your series to map the columns by header name.`;
     } else if (libraryId === 'chartjs') {
-      libInstruction = `Generate a valid Chart.js configuration object. Return a JSON object with 'data' and 'options' properties.
+      libInstruction = `For the 'config' property, generate a valid Chart.js configuration object with 'data' and 'options' properties.
 IMPORTANT: DO NOT hardcode the actual data arrays. For any data array (like labels or dataset data), you MUST use the exact string placeholder "$col_HEADERNAME" (e.g. "$col_Month" or "$col_Sales"). We will replace these placeholders with the actual data arrays before rendering.`;
     } else if (libraryId === 'plotly') {
-      libInstruction = `Generate a valid Plotly configuration object. Return a JSON object with 'data' (array of traces) and 'options' (layout) properties.
+      libInstruction = `For the 'config' property, generate a valid Plotly configuration object with 'data' (array of traces) and 'options' (layout) properties.
 IMPORTANT: DO NOT hardcode the actual data arrays. For any data array (like x or y values in traces), you MUST use the exact string placeholder "$col_HEADERNAME" (e.g. "$col_Month" or "$col_Sales"). We will replace these placeholders with the actual data arrays before rendering.`;
     }
 
     const systemInstruction = `
 You are a data visualization expert.
-Your task is to generate a JSON configuration for a ${chartType} chart using the ${libraryId} library.
+Your task is to choose the most appropriate chart type and generate a JSON configuration for it using the ${libraryId} library.
+Supported chart types: 'line', 'bar', 'pie', 'scatter'.
+
 ${libInstruction}
 IMPORTANT: Do not hardcode font colors, text colors, or background colors. Let the charting library handle them automatically so the chart can adapt to light and dark themes.
 
@@ -125,6 +126,10 @@ Input Data Headers: ${JSON.stringify(headers)}
 Input Data Sample (first 10 rows): ${JSON.stringify(data.slice(0, 10))}
 
 User Request: ${prompt}
+
+You MUST return a JSON object with EXACTLY two properties:
+1. "chartType": A string, one of ['line', 'bar', 'pie', 'scatter']
+2. "config": The configuration object for the chosen chart type.
 
 Return ONLY a valid JSON object. Do not include markdown formatting like \`\`\`json. Just the raw JSON string.
 `;

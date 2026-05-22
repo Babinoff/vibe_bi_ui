@@ -60,37 +60,41 @@ export function VisualizationNode({ id }: { id: string }) {
         throw new Error('No input data found. Connect a Data Source or Transform node first.');
       }
 
-      addLog(`Generating ${chartType} chart using ${libraryId}...`, 'info');
+      addLog(`Generating chart using ${libraryId}...`, 'info');
       
       const configData = await LLMClient.generateChartConfig(
         libraryId as string,
-        chartType as string,
         inputHeaders,
         inputData,
-        (prompt as string) || `Create a ${chartType} chart`,
+        (prompt as string) || `Create a chart`,
         (msg: string) => addLog(msg, 'info')
       );
       
       let finalConfig: any;
+      const parsedChartType = configData.chartType || chartType;
+      const actualConfig = configData.config || configData;
+
       if (libraryId === 'echarts') {
-        finalConfig = configData;
+        finalConfig = actualConfig;
       } else {
-        finalConfig = { data: configData.data, options: configData.options };
+        finalConfig = { data: actualConfig.data, options: actualConfig.options };
       }
 
       const generatedConfigStr = JSON.stringify(finalConfig, null, 2);
+      const generatedChartType = parsedChartType;
 
       const newHistoryItem = {
         id: Date.now().toString(),
-        prompt: prompt || `Create a ${chartType} chart`,
+        prompt: prompt || `Create a chart`,
         config: generatedConfigStr,
         libraryId,
-        chartType,
+        chartType: generatedChartType,
         timestamp: new Date().toISOString(),
       };
 
       updateNodeData(id, { 
         generatedConfig: generatedConfigStr,
+        chartType: generatedChartType,
         outputChartConfig: null, // Reset output on new generation
         promptHistory: [newHistoryItem, ...(Array.isArray(promptHistory) ? promptHistory : [])],
       });
@@ -193,19 +197,6 @@ export function VisualizationNode({ id }: { id: string }) {
                 <option value="echarts">ECharts</option>
                 <option value="chartjs">Chart.js</option>
                 <option value="plotly">Plotly</option>
-              </select>
-            </div>
-            <div className="flex-1 flex flex-col gap-1">
-              <label className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Type</label>
-              <select 
-                value={chartType}
-                onChange={(e) => updateNodeData(id, { chartType: e.target.value })}
-                className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1 text-xs text-slate-700 dark:text-slate-200"
-              >
-                <option value="bar">Bar</option>
-                <option value="line">Line</option>
-                <option value="pie">Pie</option>
-                <option value="scatter">Scatter</option>
               </select>
             </div>
           </div>
