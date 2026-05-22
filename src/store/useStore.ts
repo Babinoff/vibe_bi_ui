@@ -25,7 +25,7 @@ export type DataSource = {
 
 export interface WidgetConfig {
   id: string;
-  type: 'chart' | 'text';
+  type: 'chart' | 'text' | 'table';
   x: number;
   y: number;
   width: number;

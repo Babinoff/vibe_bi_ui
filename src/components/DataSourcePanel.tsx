@@ -33,6 +33,7 @@ export function DataSourcePanel() {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      dynamicTyping: true,
       preview: 50,
       complete: (results) => {
         const headers = results.meta.fields || [];

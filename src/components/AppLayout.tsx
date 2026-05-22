@@ -23,6 +23,7 @@ export function AppLayout() {
     const addWidget = useStore.getState().addWidget;
     const updateWidget = useStore.getState().updateWidget;
     const removeWidget = useStore.getState().removeWidget;
+    const dataSources = useStore.getState().dataSources;
     
     const connectedWidgetIds = new Set<string>();
     const processedSourceIds = new Set<string>();
@@ -39,7 +40,9 @@ export function AppLayout() {
         sourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
       }
 
-      if (sourceNode?.type === 'visualization' && sourceNode.data.outputChartConfig) {
+      if (!sourceNode) return;
+
+      if (sourceNode.type === 'visualization' && sourceNode.data.outputChartConfig) {
         if (processedSourceIds.has(sourceNode.id)) return;
         processedSourceIds.add(sourceNode.id);
 
@@ -72,13 +75,58 @@ export function AppLayout() {
             });
           }
         }
+      } else {
+        // Table widget for DataSource or Transform nodes
+        let headers: string[] = [];
+        let data: any[][] = [];
+
+        if (sourceNode.type === 'dataSource' && sourceNode.data.selectedSourceId) {
+          const ds = dataSources.find(d => d.id === sourceNode!.data.selectedSourceId);
+          if (ds) {
+            headers = ds.headers;
+            data = ds.previewData;
+          }
+        } else if (sourceNode.type === 'transform') {
+          headers = (sourceNode.data.outputHeaders || []) as string[];
+          data = (sourceNode.data.outputData || []) as any[][];
+        }
+
+        if (headers.length > 0) {
+          if (processedSourceIds.has(sourceNode.id)) return;
+          processedSourceIds.add(sourceNode.id);
+
+          const widgetId = `widget-${sourceNode.id}`;
+          connectedWidgetIds.add(widgetId);
+          
+          const existingWidget = currentWidgets.find(w => w.id === widgetId);
+          const tableData = { headers, data };
+          
+          if (!existingWidget) {
+            addWidget({
+              id: widgetId,
+              type: 'table',
+              x: (index % 2) * 420 + 20,
+              y: Math.floor(index / 2) * 320 + 20,
+              width: 400,
+              height: 300,
+              data: tableData
+            });
+          } else {
+            // Update widget data if it changed
+            if (JSON.stringify(existingWidget.data) !== JSON.stringify(tableData)) {
+              updateWidget(widgetId, {
+                data: tableData
+              });
+            }
+          }
+        }
       }
     });
 
-    // Remove chart widgets that are no longer connected
+    // Remove chart/table widgets that are no longer connected
     currentWidgets.forEach(w => {
-      // Only remove chart widgets that were auto-generated (their ID starts with 'widget-' and they are not text widgets)
-      if (w.type === 'chart' && w.id.startsWith('widget-') && !connectedWidgetIds.has(w.id)) {
+      // Only remove widgets that were auto-generated (their ID starts with 'widget-' and they are not text widgets)
+      if ((w.type === 'chart' || w.type === 'table') && w.id.startsWith('widget-') && !connectedWidgetIds.has(w.id)) {
         removeWidget(w.id);
       }
     });

@@ -77,8 +77,12 @@ export function PromptEditor({ nodeId }: { nodeId: string }) {
         outputData: result.data
       });
       
-      addLog(`Execution complete. Result: ${result.data.length} rows.`, 'success');
-      setTimeout(() => setShowLogs(false), 3000);
+      if (result.printed_text) {
+        addLog(`Execution complete.\\nPrint output:\\n${result.printed_text}\\nResult: ${result.data.length} rows.`, 'success');
+      } else {
+        addLog(`Execution complete. Result: ${result.data.length} rows.`, 'success');
+      }
+      setTimeout(() => setShowLogs(false), 5000);
     } catch (err: any) {
       addLog(`Execution Error: ${err.message}`, 'error');
     } finally {
@@ -234,7 +238,7 @@ export function PromptEditor({ nodeId }: { nodeId: string }) {
           </div>
           <div className="p-1.5 overflow-y-auto custom-scrollbar flex flex-col gap-0.5 font-mono text-[9px] nodrag">
             {logs.map(log => (
-              <div key={log.id} className={`${log.type === 'error' ? 'text-red-500 dark:text-red-400' : log.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}`}>
+              <div key={log.id} className={`whitespace-pre-wrap ${log.type === 'error' ? 'text-red-500 dark:text-red-400' : log.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}`}>
                 <span className="text-slate-400 dark:text-slate-600 mr-1">[{new Date().toLocaleTimeString()}]</span>
                 {log.text}
               </div>

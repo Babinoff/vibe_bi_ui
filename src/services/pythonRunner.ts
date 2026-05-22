@@ -49,10 +49,16 @@ export class PythonRunner {
     const wrapperCode = `
 import pandas as pd
 import json
+import sys
+import io
 
 def run_user_code():
     data_dicts = json.loads(input_json)
     df = pd.DataFrame(data_dicts)
+    
+    # Auto-convert string columns to numeric where possible
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='ignore')
     
     user_globals = {'pd': pd, 'df': df}
     
@@ -60,29 +66,47 @@ def run_user_code():
     import builtins
     user_globals['__builtins__'] = builtins
     
-    user_code = ${JSON.stringify(code)}
+    # Redirect stdout to capture prints
+    old_stdout = sys.stdout
+    redirected_output = sys.stdout = io.StringIO()
     
-    exec(user_code, user_globals)
+    try:
+        user_code = ${JSON.stringify(code)}
+        exec(user_code, user_globals)
+    finally:
+        sys.stdout = old_stdout
     
-    if 'result_df' in user_globals:
-        return user_globals['result_df']
-    else:
-        return user_globals['df']
+    output_df = user_globals.get('result_df', user_globals['df'])
+    printed_text = redirected_output.getvalue()
+    
+    return output_df, printed_text
 
-result_df = run_user_code()
+result_df, printed_text = run_user_code()
 result_json = result_df.to_json(orient='split', date_format='iso')
-result_json
+
+# Return both JSON data and printed text
+json.dumps({
+    "df_json": result_json,
+    "printed_text": printed_text
+})
 `;
 
     onLog?.('Executing Python code...');
     try {
-      const resultJsonStr = await pyodide.runPythonAsync(wrapperCode);
+      const combinedJsonStr = await pyodide.runPythonAsync(wrapperCode);
       onLog?.('Execution successful. Parsing results...');
       
-      const resultObj = JSON.parse(resultJsonStr);
+      const combinedObj = JSON.parse(combinedJsonStr);
+      const resultObj = JSON.parse(combinedObj.df_json);
+      
+      if (combinedObj.printed_text) {
+        onLog?.('Output from Python print():\\n' + combinedObj.printed_text);
+      }
+      
       return {
         headers: resultObj.columns,
-        data: resultObj.data
+        data: resultObj.data,
+        printed_text: combinedObj.printed_text
       };
     } catch (error: any) {
       console.error('Python execution error:', error);

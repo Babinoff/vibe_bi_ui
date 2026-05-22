@@ -103,9 +103,9 @@ export function DashboardEditor() {
             >
               <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                 <GripHorizontal size={14} />
-                <span className="text-xs font-semibold">{widget.type === 'chart' ? 'Chart Widget' : 'Text Widget'}</span>
+                <span className="text-xs font-semibold">{widget.type === 'chart' ? 'Chart Widget' : widget.type === 'table' ? 'Table Widget' : 'Text Widget'}</span>
               </div>
-              {widget.type !== 'chart' && (
+              {widget.type !== 'chart' && widget.type !== 'table' && (
                 <button 
                   onClick={(e) => { e.stopPropagation(); removeWidget(widget.id); }}
                   className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
@@ -118,9 +118,40 @@ export function DashboardEditor() {
           )}
 
           {/* Content */}
-          <div className="flex-1 p-2 relative overflow-hidden">
+          <div className="flex-1 p-2 relative overflow-hidden flex flex-col">
             {widget.type === 'chart' && widget.libraryId && (
               <ChartCanvas libraryId={widget.libraryId} config={widget.data} className="w-full h-full" />
+            )}
+            {widget.type === 'table' && widget.data && (
+              <div className="w-full h-full flex flex-col overflow-hidden bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
+                <div className="overflow-auto flex-1 custom-scrollbar">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 text-slate-700 dark:text-slate-300 shadow-sm z-10">
+                      <tr>
+                        {(widget.data.headers || []).map((h: string, i: number) => (
+                          <th key={i} className="p-2 border-b border-r border-slate-200 dark:border-slate-700 whitespace-nowrap font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(widget.data.data || []).slice(0, 100).map((row: any[], rowIndex: number) => (
+                        <tr key={rowIndex} className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                          {row.map((cell: any, cellIndex: number) => (
+                            <td key={cellIndex} className="p-2 border-b border-r border-slate-200 dark:border-slate-700 whitespace-nowrap text-slate-600 dark:text-slate-300">
+                              {String(cell)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {(widget.data.data || []).length > 100 && (
+                    <div className="p-2 text-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 sticky bottom-0">
+                      Showing first 100 rows of {(widget.data.data || []).length}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
             {widget.type === 'text' && (
               isPresentationMode ? (
