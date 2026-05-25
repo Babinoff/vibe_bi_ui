@@ -1,8 +1,8 @@
 /**
- * Extracts Python code from a Markdown response.
+ * Extracts code from a Markdown response.
  */
 export function parseCodeFromResponse(response: string): string {
-  const codeBlockRegex = /```(?:python)?\n([\s\S]*?)```/;
+  const codeBlockRegex = /```(?:python|javascript|js)?\n([\s\S]*?)```/i;
   const match = response.match(codeBlockRegex);
   
   if (match && match[1]) {

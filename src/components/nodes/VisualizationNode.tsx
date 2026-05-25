@@ -87,17 +87,8 @@ export function VisualizationNode({ id }: { id: string }) {
         uniqueCategories
       );
       
-      let finalConfig: any;
       const parsedChartType = configData.chartType || chartType;
-      const actualConfig = configData.config || configData;
-
-      if (libraryId === 'echarts') {
-        finalConfig = actualConfig;
-      } else {
-        finalConfig = { data: actualConfig.data, options: actualConfig.options };
-      }
-
-      const generatedConfigStr = JSON.stringify(finalConfig, null, 2);
+      const generatedConfigStr = configData.configCode || (typeof configData.config === 'string' ? configData.config : JSON.stringify(configData.config || configData, null, 2));
       const generatedChartType = parsedChartType;
 
       const newHistoryItem = {
@@ -151,29 +142,43 @@ export function VisualizationNode({ id }: { id: string }) {
         inputData = (actualSourceNode.data.outputData || []) as any[][];
       }
 
-      let configStr = generatedConfig as string;
+      let configCode = generatedConfig as string;
       
-      if (libraryId === 'echarts') {
-        const datasetStr = JSON.stringify([inputHeaders, ...inputData]);
-        configStr = configStr.replace(/"\$dataset"/g, () => datasetStr);
-      } else {
-        inputHeaders.forEach((header, index) => {
-          const colData = inputData.map(row => row[index]);
-          const colDataStr = JSON.stringify(colData);
-          const escapedHeader = header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const regex = new RegExp(`"\\$col_${escapedHeader}"`, 'g');
-          configStr = configStr.replace(regex, () => colDataStr);
-        });
+      // Clean up potential markdown formatting if LLM wrapped the JS code
+      let cleanCode = configCode.replace(/```(?:javascript|js)?\n([\s\S]*?)```/gi, '$1').trim();
+
+      // Create a wrapper to safely execute the generated function
+      const wrapper = `
+        ${cleanCode}
+        if (typeof generateChart === 'function') {
+          return generateChart(headers, data);
+        } else {
+          throw new Error("Function 'generateChart' is not defined in the generated code.");
+        }
+      `;
+
+      addLog('Executing generated JavaScript code...', 'info');
+      
+      let parsedConfig;
+      try {
+        const executor = new Function('headers', 'data', wrapper);
+        parsedConfig = executor(inputHeaders, inputData);
+      } catch (execErr: any) {
+        throw new Error(`Execution error: ${execErr.message}`);
       }
 
-      const parsedConfig = JSON.parse(configStr);
+      if (!parsedConfig || typeof parsedConfig !== 'object') {
+        throw new Error("generateChart must return a configuration object.");
+      }
+
       const finalConfig = { type: chartType as any, ...parsedConfig };
       if (libraryId !== 'echarts') {
         finalConfig.data = parsedConfig.data || parsedConfig;
-        finalConfig.options = parsedConfig.options;
+        finalConfig.options = parsedConfig.options || {};
       } else {
         finalConfig.data = parsedConfig;
       }
+      
       updateNodeData(id, { 
         outputChartConfig: finalConfig,
         outputLibraryId: libraryId
@@ -182,7 +187,7 @@ export function VisualizationNode({ id }: { id: string }) {
       setShowLogs(true);
       setTimeout(() => setShowLogs(false), 3000);
     } catch (err: any) {
-      addLog(`Error parsing config: ${err.message}`, 'error');
+      addLog(`Error running config: ${err.message}`, 'error');
       setShowLogs(true);
     }
   };
@@ -294,7 +299,7 @@ export function VisualizationNode({ id }: { id: string }) {
         <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-900 px-2 py-1 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
             <Code2 size={12} />
-            Configuration (JSON)
+            Configuration (JavaScript)
           </div>
           <button
             onClick={handleRun}
@@ -310,7 +315,7 @@ export function VisualizationNode({ id }: { id: string }) {
           onChange={(e) => updateNodeData(id, { generatedConfig: e.target.value })}
           spellCheck={false}
           className="flex-1 w-full bg-transparent text-slate-700 dark:text-slate-300 text-[10px] font-mono p-2 resize-none focus:outline-none custom-scrollbar"
-          placeholder="// Generated JSON configuration will appear here..."
+          placeholder="// Generated JavaScript function will appear here..."
         />
       </div>
 

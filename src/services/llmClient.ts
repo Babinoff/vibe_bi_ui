@@ -96,7 +96,7 @@ ${context.previousTransforms && context.previousTransforms.length > 0 ?
     onLog?: (msg: string) => void,
     promptHistory?: any[],
     uniqueCategories?: Record<string, string[]>
-  ): Promise<{ chartType: string, config: any }> {
+  ): Promise<{ chartType: string, configCode: string }> {
     const storeState = useStore.getState();
     const provider = storeState.llmProvider;
     const mistralToken = storeState.mistralToken;
@@ -106,30 +106,56 @@ ${context.previousTransforms && context.previousTransforms.length > 0 ?
 
     let libInstruction = '';
     if (libraryId === 'echarts') {
-      libInstruction = `For the 'config' property, generate a valid ECharts option object. The root of this config should be the options (e.g., { xAxis: {...}, yAxis: {...}, series: [...] }).
-IMPORTANT: DO NOT hardcode the actual data arrays. You MUST use the exact string placeholder "$dataset" for the FIRST \`dataset.source\` property (e.g. \`dataset: [{ source: "$dataset" }, ...]\`). We will inject the 2D data array there.
-If you need to group data by a category to create multiple series (e.g. to show a legend with colors for each category), you MUST use ECharts \`dataset.transform\` of type \`filter\` for each unique category.
-CRITICAL ECHARTS FILTER SYNTAX EXAMPLE:
-If you want to group by "CategoryColumn" which has values "A" and "B":
-"dataset": [
-  { "source": "$dataset" },
-  { "transform": { "type": "filter", "config": { "dimension": "CategoryColumn", "=": "A" } } },
-  { "transform": { "type": "filter", "config": { "dimension": "CategoryColumn", "=": "B" } } }
-],
-"series": [
-  { "type": "bar", "datasetIndex": 1, "name": "A" },
-  { "type": "bar", "datasetIndex": 2, "name": "B" }
-]
-Do not use "eq" or "value" objects inside config! Use the exact syntax shown above.
-DO NOT hardcode \`xAxis.data\` or \`legend.data\`. ECharts infers them automatically. Set \`xAxis.type: 'category'\` if needed.`;
+      libInstruction = `Generate a JavaScript function that returns a valid ECharts option object. The root of this config should be the options (e.g., { xAxis: {...}, yAxis: {...}, series: [...] }).
+IMPORTANT: You will receive 'headers' (array of strings) and 'data' (2D array of rows). You must write JS code to process this data into the format ECharts expects.
+If you need to group data by a category (e.g. to create a legend with distinct colors), DO NOT use ECharts dataset filters. Instead, manually group the data in JS and create multiple series objects.
+
+ECHARTS GROUPING EXAMPLE:
+// If grouping by 'Category' (index 1) and plotting 'Value' (index 2) over 'Date' (index 0)
+const categories = [...new Set(data.map(row => row[1]))];
+const series = categories.map(category => {
+  const filteredData = data.filter(row => row[1] === category);
+  return {
+    name: category,
+    type: 'bar',
+    data: filteredData.map(row => [row[0], row[2]])
+  };
+});
+return { xAxis: { type: 'category' }, yAxis: { type: 'value' }, series };`;
     } else if (libraryId === 'chartjs') {
-      libInstruction = `For the 'config' property, generate a valid Chart.js configuration object with 'data' and 'options' properties.
-IMPORTANT: DO NOT hardcode the actual data arrays. For any data array (like labels or dataset data), you MUST use the exact string placeholder "$col_HEADERNAME" (e.g. "$col_Month" or "$col_Sales"). We will replace these placeholders with the actual data arrays before rendering.
-NOTE: In Chart.js JSON, you cannot dynamically filter a single dataset into multiple grouped series. If the user asks to group by a category and show a legend, do your best using single datasets or mapping colors if possible, but you cannot create multiple datasets from a long-format table dynamically here.`;
+      libInstruction = `Generate a JavaScript function that returns a valid Chart.js configuration object with 'data' and 'options' properties.
+IMPORTANT: You will receive 'headers' (array of strings) and 'data' (2D array of rows). You must write JS code to process this data into the format Chart.js expects (labels array and datasets array).
+
+CHART.JS GROUPING EXAMPLE:
+// If grouping by 'Category' (index 1) and plotting 'Value' (index 2) over 'Date' (index 0)
+const labels = [...new Set(data.map(row => row[0]))]; // Unique X-axis values
+const categories = [...new Set(data.map(row => row[1]))]; // Unique legend items
+const datasets = categories.map(category => {
+  const categoryData = labels.map(label => {
+    // Find the row matching both label (X) and category (Legend)
+    const row = data.find(r => r[0] === label && r[1] === category);
+    return row ? row[2] : 0; // Return value or 0
+  });
+  return { label: category, data: categoryData };
+});
+return { type: 'bar', data: { labels, datasets }, options: {} };`;
     } else if (libraryId === 'plotly') {
-      libInstruction = `For the 'config' property, generate a valid Plotly configuration object with 'data' (array of traces) and 'options' (layout) properties.
-IMPORTANT: DO NOT hardcode the actual data arrays. For any data array (like x or y values in traces), you MUST use the exact string placeholder "$col_HEADERNAME" (e.g. "$col_Month" or "$col_Sales"). We will replace these placeholders with the actual data arrays before rendering.
-NOTE: In Plotly JSON, you cannot dynamically filter a single dataset into multiple grouped traces. If the user asks to group by a category, do your best using 'color' or 'transforms' if Plotly supports it in JSON, otherwise use a single trace.`;
+      libInstruction = `Generate a JavaScript function that returns a valid Plotly configuration object with 'data' (array of traces) and 'options' (layout) properties.
+IMPORTANT: You will receive 'headers' (array of strings) and 'data' (2D array of rows). You must write JS code to process this data into the format Plotly expects.
+
+PLOTLY GROUPING EXAMPLE:
+// If grouping by 'Category' (index 1) and plotting 'Value' (index 2) over 'Date' (index 0)
+const categories = [...new Set(data.map(row => row[1]))];
+const traces = categories.map(category => {
+  const filteredData = data.filter(row => row[1] === category);
+  return {
+    name: category,
+    x: filteredData.map(row => row[0]),
+    y: filteredData.map(row => row[2]),
+    type: 'bar'
+  };
+});
+return { data: traces, options: { barmode: 'group' } };`;
     }
 
     let historyContext = '';
@@ -137,7 +163,7 @@ NOTE: In Plotly JSON, you cannot dynamically filter a single dataset into multip
       historyContext = `\nPrevious interactions:\n`;
       const recentHistory = [...promptHistory].slice(0, 3).reverse();
       recentHistory.forEach((item, index) => {
-        historyContext += `\n--- Interaction ${index + 1} ---\nUser Request: ${item.prompt}\nGenerated Config:\n${item.config}\n`;
+        historyContext += `\n--- Interaction ${index + 1} ---\nUser Request: ${item.prompt}\nGenerated Code:\n${item.config}\n`;
       });
       historyContext += `\n--- Current Request ---\n`;
     }
@@ -146,14 +172,15 @@ NOTE: In Plotly JSON, you cannot dynamically filter a single dataset into multip
 
     const systemInstruction = `
 You are a data visualization expert.
-Your task is to choose the most appropriate chart type and generate a JSON configuration for it using the ${libraryId} library.
+Your task is to choose the most appropriate chart type and generate JavaScript code for it using the ${libraryId} library.
 Supported chart types: 'line', 'bar', 'pie', 'scatter'.
 
 ${libInstruction}
+
 IMPORTANT RULES:
 1. Do not hardcode font colors, text colors, or background colors. Let the charting library handle them automatically so the chart can adapt to light and dark themes.
-2. The configuration MUST be completely data-agnostic, relying ONLY on the column headers and the provided unique categories. 
-3. Unique Category Values: If you need to create multiple series based on a categorical column (e.g., to create a legend with distinct colors), you CAN use the exact category values provided in the "Unique Category Values" JSON below. DO NOT guess categories from the sample data, use ONLY the provided Unique Category Values.
+2. The code MUST be completely data-agnostic, relying ONLY on the 'headers' and 'data' arguments passed to the function. 
+3. Unique Category Values: If you need to create multiple series based on a categorical column (e.g., to create a legend with distinct colors), you CAN use the exact category values provided in the "Unique Category Values" JSON below.
 
 Input Data Headers: ${JSON.stringify(headers)}
 Unique Category Values: ${uniqueCategoriesStr}
@@ -163,7 +190,10 @@ User Request: ${prompt}
 
 You MUST return a JSON object with EXACTLY two properties:
 1. "chartType": A string, one of ['line', 'bar', 'pie', 'scatter']
-2. "config": The configuration object for the chosen chart type.
+2. "configCode": A string containing ONLY the JavaScript function. The function MUST be named 'generateChart' and take exactly two parameters: (headers, data).
+
+Example of configCode string:
+"function generateChart(headers, data) {\\n  const labels = data.map(row => row[0]);\\n  return { type: 'bar', data: { labels, datasets: [...] } };\\n}"
 
 Return ONLY a valid JSON object. Do not include markdown formatting like \`\`\`json. Just the raw JSON string.
 `;
