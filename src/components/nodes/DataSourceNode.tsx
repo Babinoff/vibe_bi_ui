@@ -53,7 +53,7 @@ export function DataSourceNode({ id, data }: { id: string, data: any }) {
       <Handle
         type="source"
         position={Position.Right}
-        className="w-3 h-3 bg-indigo-500 border-2 border-white dark:border-slate-800"
+        className="w-5 h-5 bg-indigo-500 border-2 border-white dark:border-slate-800 hover:scale-125 transition-transform cursor-crosshair"
       />
     </div>
   );

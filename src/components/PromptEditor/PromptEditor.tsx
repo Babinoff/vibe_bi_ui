@@ -44,10 +44,20 @@ export function PromptEditor({ nodeId }: { nodeId: string }) {
       const sourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
       
       let actualSourceNode = sourceNode;
-      // Traverse back if the source is a watch node
-      while (actualSourceNode?.type === 'watch') {
-        const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
-        actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+      // Traverse back if it's a watch node, or a node without output
+      while (actualSourceNode) {
+        if (actualSourceNode.type === 'watch') {
+          const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+        } else if (actualSourceNode.type === 'transform' && (!actualSourceNode.data.outputHeaders || actualSourceNode.data.outputHeaders.length === 0)) {
+          const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else if (actualSourceNode.type === 'visualization' && !actualSourceNode.data.outputChartConfig) {
+          const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else {
+          break;
+        }
       }
       
       let inputHeaders: string[] = [];
@@ -110,10 +120,20 @@ export function PromptEditor({ nodeId }: { nodeId: string }) {
       let sampleData: Record<string, any>[] = [];
 
       let actualSourceNode = sourceNode;
-      // Traverse back if the source is a watch node
-      while (actualSourceNode?.type === 'watch') {
-        const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
-        actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+      // Traverse back if it's a watch node, or a node without output
+      while (actualSourceNode) {
+        if (actualSourceNode.type === 'watch') {
+          const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+        } else if (actualSourceNode.type === 'transform' && (!actualSourceNode.data.outputHeaders || actualSourceNode.data.outputHeaders.length === 0)) {
+          const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else if (actualSourceNode.type === 'visualization' && !actualSourceNode.data.outputChartConfig) {
+          const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else {
+          break;
+        }
       }
 
       if (actualSourceNode?.type === 'dataSource' && actualSourceNode.data.selectedSourceId) {

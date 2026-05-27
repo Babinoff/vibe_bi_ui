@@ -32,7 +32,8 @@ function FlowEditor() {
   const { 
     nodes, edges, dataSources, onNodesChange, onEdgesChange, onConnect, 
     addNode, setSelectedNodeId, loadWorkspace, theme, toggleTheme, 
-    llmProvider, setLlmProvider, mistralToken, setMistralToken, geminiToken, setGeminiToken 
+    llmProvider, setLlmProvider, mistralToken, setMistralToken, geminiToken, setGeminiToken,
+    openaiToken, setOpenaiToken, claudeToken, setClaudeToken
   } = useStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -195,6 +196,7 @@ function FlowEditor() {
         onPaneClick={onPaneClick}
         nodeTypes={memoizedNodeTypes}
         fitView
+        minZoom={0.05}
         colorMode={theme}
         className="bg-slate-50 dark:bg-slate-950 transition-colors"
       >
@@ -218,34 +220,38 @@ function FlowEditor() {
           <div className="bg-white/80 dark:bg-slate-800/80 p-2 rounded-lg border border-slate-200 dark:border-slate-700 backdrop-blur-sm flex gap-2 justify-end shadow-sm items-center">
             <input
               type="password"
-              placeholder={`${llmProvider === 'mistral' ? 'Mistral' : 'Gemini'} API Key`}
+              placeholder={`${llmProvider.charAt(0).toUpperCase() + llmProvider.slice(1)} API Key`}
               value={
-                llmProvider === 'mistral' 
-                  ? mistralToken
-                  : geminiToken
+                llmProvider === 'mistral' ? mistralToken :
+                llmProvider === 'gemini' ? geminiToken :
+                llmProvider === 'openai' ? openaiToken :
+                claudeToken
               }
               onChange={(e) => {
-                if (llmProvider === 'mistral') {
-                  setMistralToken(e.target.value);
-                } else {
-                  setGeminiToken(e.target.value);
-                }
+                if (llmProvider === 'mistral') setMistralToken(e.target.value);
+                else if (llmProvider === 'gemini') setGeminiToken(e.target.value);
+                else if (llmProvider === 'openai') setOpenaiToken(e.target.value);
+                else setClaudeToken(e.target.value);
               }}
               className="px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 w-48 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              title={`Enter your ${llmProvider === 'mistral' ? 'Mistral' : 'Gemini'} API Key`}
+              title={`Enter your ${llmProvider.charAt(0).toUpperCase() + llmProvider.slice(1)} API Key`}
             />
-            <button 
-              onClick={() => setLlmProvider(llmProvider === 'mistral' ? 'gemini' : 'mistral')}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs rounded transition-colors ${
-                llmProvider === 'mistral' 
-                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50' 
-                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50'
-              }`}
-              title="Toggle LLM Provider"
-            >
-              <Zap size={14} />
-              {llmProvider === 'mistral' ? 'Mistral' : 'Gemini'}
-            </button>
+            <div className="relative flex items-center">
+              <div className="absolute left-2 text-slate-500 dark:text-slate-400 pointer-events-none">
+                <Zap size={14} />
+              </div>
+              <select
+                value={llmProvider}
+                onChange={(e) => setLlmProvider(e.target.value as any)}
+                className="pl-7 pr-6 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors cursor-pointer"
+                title="Select LLM Provider"
+              >
+                <option value="mistral">Mistral</option>
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI</option>
+                <option value="claude">Claude</option>
+              </select>
+            </div>
             <div className="w-px h-7 bg-slate-200 dark:bg-slate-700 mx-1"></div>
             <button 
               onClick={() => toggleTheme()}

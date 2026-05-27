@@ -14,8 +14,10 @@ export class LLMClient {
     const provider = storeState.llmProvider;
     const mistralToken = storeState.mistralToken;
     const geminiToken = storeState.geminiToken;
+    const openaiToken = storeState.openaiToken;
+    const claudeToken = storeState.claudeToken;
     
-    onLog?.(`Initializing ${provider === 'mistral' ? 'Mistral' : 'Gemini'} client...`);
+    onLog?.(`Initializing ${provider} client...`);
     
     const systemInstruction = `
 Твоя задача — написать Python-код (pandas) для обработки данных.
@@ -54,6 +56,57 @@ ${context.previousTransforms && context.previousTransforms.length > 0 ?
           ],
         });
         text = (response.choices?.[0]?.message?.content as string) || '';
+      } else if (provider === 'openai') {
+        if (!openaiToken) throw new Error('OpenAI API Key is missing. Please provide it in the top menu.');
+        onLog?.('Sending request to gpt-4o...');
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiToken}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            temperature: 0.2,
+            messages: [
+              { role: 'system', content: systemInstruction },
+              { role: 'user', content: `Выполни действие пользователя: ${prompt}` }
+            ]
+          })
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error?.message || `OpenAI API error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        text = data.choices[0].message.content;
+      } else if (provider === 'claude') {
+        if (!claudeToken) throw new Error('Claude API Key is missing. Please provide it in the top menu.');
+        onLog?.('Sending request to claude-3-7-sonnet...');
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': claudeToken,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-7-sonnet-20250219',
+            max_tokens: 4096,
+            temperature: 0.2,
+            system: systemInstruction,
+            messages: [
+              { role: 'user', content: `Выполни действие пользователя: ${prompt}` }
+            ]
+          })
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error?.message || `Claude API error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        text = data.content[0].text;
       } else {
         if (!geminiToken) throw new Error('Gemini API Key is missing. Please provide it in the top menu.');
         onLog?.('Sending request to gemini-3.1-pro-preview...');
@@ -101,8 +154,10 @@ ${context.previousTransforms && context.previousTransforms.length > 0 ?
     const provider = storeState.llmProvider;
     const mistralToken = storeState.mistralToken;
     const geminiToken = storeState.geminiToken;
+    const openaiToken = storeState.openaiToken;
+    const claudeToken = storeState.claudeToken;
 
-    onLog?.(`Initializing ${provider === 'mistral' ? 'Mistral' : 'Gemini'} client for chart generation...`);
+    onLog?.(`Initializing ${provider} client for chart generation...`);
 
     let libInstruction = '';
     if (libraryId === 'echarts') {
@@ -213,6 +268,57 @@ Return ONLY a valid JSON object. Do not include markdown formatting like \`\`\`j
           ],
         });
         text = (response.choices?.[0]?.message?.content as string) || '{}';
+      } else if (provider === 'openai') {
+        if (!openaiToken) throw new Error('OpenAI API Key is missing. Please provide it in the top menu.');
+        onLog?.(`Sending request to gpt-4o for ${libraryId} config...`);
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiToken}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            temperature: 0.1,
+            response_format: { type: 'json_object' },
+            messages: [
+              { role: 'system', content: systemInstruction }
+            ]
+          })
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error?.message || `OpenAI API error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        text = data.choices[0].message.content;
+      } else if (provider === 'claude') {
+        if (!claudeToken) throw new Error('Claude API Key is missing. Please provide it in the top menu.');
+        onLog?.(`Sending request to claude-3-7-sonnet for ${libraryId} config...`);
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': claudeToken,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-7-sonnet-20250219',
+            max_tokens: 4096,
+            temperature: 0.1,
+            system: "You must return ONLY a valid JSON object. Do not include markdown formatting like ```json.",
+            messages: [
+              { role: 'user', content: systemInstruction }
+            ]
+          })
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error?.message || `Claude API error: ${response.statusText}`);
+        }
+        const data = await response.json();
+        text = data.content[0].text;
       } else {
         if (!geminiToken) throw new Error('Gemini API Key is missing. Please provide it in the top menu.');
         onLog?.(`Sending request to gemini-3-flash-preview for ${libraryId} config...`);

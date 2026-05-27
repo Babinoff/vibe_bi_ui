@@ -34,10 +34,20 @@ export function AppLayout() {
     allDashboardEdges.forEach((edge, index) => {
       let sourceNode = nodes.find(n => n.id === edge.source);
       
-      // Traverse back if it's a watch node
-      while (sourceNode?.type === 'watch') {
-        const watchIncomingEdges = edges.filter(e => e.target === sourceNode!.id);
-        sourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+      // Traverse back if it's a watch node, or a node without output
+      while (sourceNode) {
+        if (sourceNode.type === 'watch') {
+          const watchIncomingEdges = edges.filter(e => e.target === sourceNode!.id);
+          sourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+        } else if (sourceNode.type === 'transform' && (!sourceNode.data.outputHeaders || sourceNode.data.outputHeaders.length === 0)) {
+          const incomingEdges = edges.filter(e => e.target === sourceNode!.id);
+          sourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else if (sourceNode.type === 'visualization' && !sourceNode.data.outputChartConfig) {
+          const incomingEdges = edges.filter(e => e.target === sourceNode!.id);
+          sourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else {
+          break;
+        }
       }
 
       if (!sourceNode) return;

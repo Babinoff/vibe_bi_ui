@@ -39,9 +39,19 @@ export function VisualizationNode({ id }: { id: string }) {
       const sourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
       
       let actualSourceNode = sourceNode;
-      while (actualSourceNode?.type === 'watch') {
-        const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
-        actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+      while (actualSourceNode) {
+        if (actualSourceNode.type === 'watch') {
+          const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+        } else if (actualSourceNode.type === 'transform' && (!actualSourceNode.data.outputHeaders || actualSourceNode.data.outputHeaders.length === 0)) {
+          const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else if (actualSourceNode.type === 'visualization' && !actualSourceNode.data.outputChartConfig) {
+          const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else {
+          break;
+        }
       }
       
       let inputHeaders: string[] = [];
@@ -123,9 +133,19 @@ export function VisualizationNode({ id }: { id: string }) {
       const sourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
       
       let actualSourceNode = sourceNode;
-      while (actualSourceNode?.type === 'watch') {
-        const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
-        actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+      while (actualSourceNode) {
+        if (actualSourceNode.type === 'watch') {
+          const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+        } else if (actualSourceNode.type === 'transform' && (!actualSourceNode.data.outputHeaders || actualSourceNode.data.outputHeaders.length === 0)) {
+          const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else if (actualSourceNode.type === 'visualization' && !actualSourceNode.data.outputChartConfig) {
+          const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else {
+          break;
+        }
       }
       
       let inputHeaders: string[] = [];
@@ -194,7 +214,7 @@ export function VisualizationNode({ id }: { id: string }) {
 
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg w-80 flex flex-col">
-      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-800" />
+      <Handle type="target" position={Position.Left} className="w-5 h-5 bg-emerald-500 border-2 border-white dark:border-slate-800 hover:scale-125 transition-transform cursor-crosshair" />
       
       <div className="bg-emerald-50 dark:bg-emerald-900/50 p-2 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
@@ -360,7 +380,7 @@ export function VisualizationNode({ id }: { id: string }) {
         </div>
       )}
 
-      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-800" />
+      <Handle type="source" position={Position.Right} className="w-5 h-5 bg-emerald-500 border-2 border-white dark:border-slate-800 hover:scale-125 transition-transform cursor-crosshair" />
     </div>
   );
 }

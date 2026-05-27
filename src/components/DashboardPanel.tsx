@@ -176,9 +176,19 @@ export function DashboardPanel() {
       const sourceNode = nodes.find(n => n.id === incomingEdge?.source);
       
       let actualSourceNode = sourceNode;
-      while (actualSourceNode?.type === 'watch') {
-        const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
-        actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+      while (actualSourceNode) {
+        if (actualSourceNode.type === 'watch') {
+          const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+        } else if (actualSourceNode.type === 'transform' && (!actualSourceNode.data.outputHeaders || actualSourceNode.data.outputHeaders.length === 0)) {
+          const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else if (actualSourceNode.type === 'visualization' && !actualSourceNode.data.outputChartConfig) {
+          const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+          actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+        } else {
+          break;
+        }
       }
       
       let headers: string[] = [];

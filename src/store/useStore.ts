@@ -72,13 +72,17 @@ type AppState = {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
 
-  llmProvider: 'mistral' | 'gemini';
-  setLlmProvider: (provider: 'mistral' | 'gemini') => void;
+  llmProvider: 'mistral' | 'gemini' | 'openai' | 'claude';
+  setLlmProvider: (provider: 'mistral' | 'gemini' | 'openai' | 'claude') => void;
 
   mistralToken: string;
   setMistralToken: (token: string) => void;
   geminiToken: string;
   setGeminiToken: (token: string) => void;
+  openaiToken: string;
+  setOpenaiToken: (token: string) => void;
+  claudeToken: string;
+  setClaudeToken: (token: string) => void;
 
   loadWorkspace: (workspace: { nodes: AppNode[], edges: Edge[], dataSources: DataSource[], widgets?: WidgetConfig[] }) => void;
 };
@@ -221,6 +225,16 @@ export const useStore = create<AppState>()(
         set({ geminiToken: token });
       },
 
+      openaiToken: '',
+      setOpenaiToken: (token) => {
+        set({ openaiToken: token });
+      },
+
+      claudeToken: '',
+      setClaudeToken: (token) => {
+        set({ claudeToken: token });
+      },
+
       loadWorkspace: (workspace) => {
         set({
           nodes: workspace.nodes || [],
@@ -245,6 +259,8 @@ export const useStore = create<AppState>()(
         llmProvider: state.llmProvider,
         mistralToken: state.mistralToken,
         geminiToken: state.geminiToken,
+        openaiToken: state.openaiToken,
+        claudeToken: state.claudeToken,
       }),
     }
   )

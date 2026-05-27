@@ -14,10 +14,22 @@ export function WatchNode({ id, selected }: { id: string, selected?: boolean }) 
   const sourceNode = nodes.find(n => n.id === incomingEdge?.source);
   
   let actualSourceNode = sourceNode;
-  // Traverse back if the source is a watch node
-  while (actualSourceNode?.type === 'watch') {
-    const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
-    actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+  // Traverse back if the source is a watch node, or a transform node without output
+  while (actualSourceNode) {
+    if (actualSourceNode.type === 'watch') {
+      const watchIncomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+      actualSourceNode = nodes.find(n => n.id === watchIncomingEdges[0]?.source);
+    } else if (actualSourceNode.type === 'transform' && (!actualSourceNode.data.outputHeaders || actualSourceNode.data.outputHeaders.length === 0)) {
+      // If transform hasn't run, show its input (raw data)
+      const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+      actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+    } else if (actualSourceNode.type === 'visualization' && !actualSourceNode.data.outputChartConfig) {
+      // If visualization hasn't run, show its input data
+      const incomingEdges = edges.filter(e => e.target === actualSourceNode!.id);
+      actualSourceNode = nodes.find(n => n.id === incomingEdges[0]?.source);
+    } else {
+      break;
+    }
   }
   
   let headers: string[] = [];
@@ -26,11 +38,14 @@ export function WatchNode({ id, selected }: { id: string, selected?: boolean }) 
   let outputLibraryId = null;
 
   if (actualSourceNode) {
+    console.log('WatchNode actualSourceNode:', actualSourceNode);
+    console.log('WatchNode dataSources:', dataSources);
     if (actualSourceNode.type === 'visualization') {
       outputChartConfig = actualSourceNode.data.outputChartConfig;
       outputLibraryId = actualSourceNode.data.outputLibraryId;
     } else if (actualSourceNode.type === 'dataSource' && actualSourceNode.data.selectedSourceId) {
       const ds = dataSources.find(d => d.id === actualSourceNode.data.selectedSourceId);
+      console.log('WatchNode found ds:', ds);
       if (ds) {
         headers = ds.headers;
         data = ds.previewData;
@@ -45,7 +60,7 @@ export function WatchNode({ id, selected }: { id: string, selected?: boolean }) 
     <>
       <NodeResizer minWidth={200} minHeight={150} isVisible={selected} />
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg w-full h-full flex flex-col overflow-hidden">
-        <Handle type="target" position={Position.Left} className="w-3 h-3 bg-orange-500 border-2 border-white dark:border-slate-800" />
+        <Handle type="target" position={Position.Left} className="w-5 h-5 bg-orange-500 border-2 border-white dark:border-slate-800 hover:scale-125 transition-transform cursor-crosshair" />
         <div className="bg-orange-50 dark:bg-orange-900/50 p-2 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Eye size={14} className="text-orange-500 dark:text-orange-400" />
@@ -99,7 +114,7 @@ export function WatchNode({ id, selected }: { id: string, selected?: boolean }) 
             <div className="text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center h-full">No data. Run source node.</div>
           )}
         </div>
-        <Handle type="source" position={Position.Right} className="w-3 h-3 bg-orange-500 border-2 border-white dark:border-slate-800" />
+        <Handle type="source" position={Position.Right} className="w-5 h-5 bg-orange-500 border-2 border-white dark:border-slate-800 hover:scale-125 transition-transform cursor-crosshair" />
       </div>
     </>
   );
