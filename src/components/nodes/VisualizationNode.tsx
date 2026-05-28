@@ -230,8 +230,9 @@ export function VisualizationNode({ id, selected }: { id: string, selected?: boo
         </button>
       }
     >
-      {showConfig && (
-        <div className="p-3 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-3 nodrag cursor-default shrink-0">
+      <div className="flex flex-col h-full overflow-y-auto custom-scrollbar">
+        {showConfig && (
+          <div className="p-3 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-3 nodrag cursor-default shrink-0">
           <div className="flex gap-2">
             <div className="flex-1 flex flex-col gap-1">
               <label className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Library</label>
@@ -336,44 +337,45 @@ export function VisualizationNode({ id, selected }: { id: string, selected?: boo
 
       {/* Prompt History */}
       {promptHistory.length > 0 && (
-        <div className="flex flex-col border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 h-24 shrink-0 nodrag">
-          <div className="flex items-center justify-between bg-slate-100/80 dark:bg-slate-800/80 px-2 py-1">
-            <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
-              <History size={10} />
-              Prompt History
+          <div className="flex flex-col border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 h-24 shrink-0 nodrag">
+            <div className="flex items-center justify-between bg-slate-100/80 dark:bg-slate-800/80 px-2 py-1">
+              <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                <History size={10} />
+                Prompt History
+              </div>
+            </div>
+            <div className="p-1.5 overflow-y-auto custom-scrollbar flex flex-col gap-1">
+              {promptHistory.map((item: any) => (
+                <div 
+                  key={item.id} 
+                  className="bg-white dark:bg-slate-800 p-1.5 rounded border border-slate-200 dark:border-slate-700 hover:border-emerald-500 cursor-pointer transition-colors"
+                  onClick={() => {
+                    updateNodeData(id, { 
+                      prompt: item.prompt,
+                      generatedConfig: item.config,
+                      libraryId: item.libraryId || libraryId,
+                      chartType: item.chartType || chartType,
+                      outputChartConfig: null
+                    });
+                  }}
+                >
+                  <div className="flex justify-between items-center mb-0.5">
+                    <span className="text-[9px] text-slate-400 dark:text-slate-500">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </span>
+                    <span className="text-[8px] px-1 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded">
+                      {item.libraryId} / {item.chartType}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-600 dark:text-slate-300 line-clamp-2">
+                    {item.prompt}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="p-1.5 overflow-y-auto custom-scrollbar flex flex-col gap-1">
-            {promptHistory.map((item: any) => (
-              <div 
-                key={item.id} 
-                className="bg-white dark:bg-slate-800 p-1.5 rounded border border-slate-200 dark:border-slate-700 hover:border-emerald-500 cursor-pointer transition-colors"
-                onClick={() => {
-                  updateNodeData(id, { 
-                    prompt: item.prompt,
-                    generatedConfig: item.config,
-                    libraryId: item.libraryId || libraryId,
-                    chartType: item.chartType || chartType,
-                    outputChartConfig: null
-                  });
-                }}
-              >
-                <div className="flex justify-between items-center mb-0.5">
-                  <span className="text-[9px] text-slate-400 dark:text-slate-500">
-                    {new Date(item.timestamp).toLocaleString()}
-                  </span>
-                  <span className="text-[8px] px-1 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded">
-                    {item.libraryId} / {item.chartType}
-                  </span>
-                </div>
-                <div className="text-[10px] text-slate-600 dark:text-slate-300 line-clamp-2">
-                  {item.prompt}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </BaseNode>
   );
 }

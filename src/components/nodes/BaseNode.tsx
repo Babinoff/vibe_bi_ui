@@ -88,7 +88,7 @@ export function BaseNode({
         <NodeResizer minWidth={minWidth} minHeight={minHeight} isVisible={selected} />
       )}
       <div 
-        className={`bg-white dark:bg-slate-800 border rounded-lg shadow-lg flex flex-col overflow-hidden transition-shadow
+        className={`bg-white dark:bg-slate-800 border rounded-lg shadow-lg flex flex-col transition-shadow h-full w-full
           ${selected ? `ring-2 ${theme.ring} border-transparent shadow-xl` : 'border-slate-200 dark:border-slate-700'} 
           ${className}
         `}
@@ -103,7 +103,7 @@ export function BaseNode({
           />
         ))}
         
-        <div className={`${theme.bg} p-2 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0`}>
+        <div className={`${theme.bg} p-2 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0 rounded-t-lg`}>
           <div className="flex items-center gap-2">
             <div className={theme.text}>{icon}</div>
             <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{title}</span>
@@ -120,7 +120,7 @@ export function BaseNode({
           </div>
         </div>
         
-        <div className="flex-1 flex flex-col relative">
+        <div className="flex-1 flex flex-col relative min-h-0 overflow-hidden rounded-b-lg">
           {children}
         </div>
       </div>
