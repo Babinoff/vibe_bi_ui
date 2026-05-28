@@ -6,6 +6,7 @@ import { useStore } from '../store/useStore';
 export function DataSourcePanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [encoding, setEncoding] = useState('UTF-8');
   
   const state = useStore((s) => s.leftPanelState);
   const setState = useStore((s) => s.setLeftPanelState);
@@ -24,17 +25,50 @@ export function DataSourcePanel() {
     setState(isMaximized ? 'open' : 'maximized');
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const detectEncoding = async (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const buffer = e.target?.result as ArrayBuffer;
+        if (!buffer) {
+          resolve('utf-8');
+          return;
+        }
+        try {
+          // Attempt to decode as UTF-8 strictly.
+          // If the file contains invalid UTF-8 (e.g., windows-1251 cyrillic characters), this will throw.
+          const decoder = new TextDecoder('utf-8', { fatal: true });
+          // stream: true prevents throwing on a multi-byte character split at the end of the chunk
+          decoder.decode(buffer, { stream: true });
+          resolve('utf-8');
+        } catch (err) {
+          // If UTF-8 decoding fails, fallback to windows-1251
+          resolve('windows-1251');
+        }
+      };
+      reader.onerror = () => resolve('utf-8');
+      
+      // Read the first 1MB to check encoding. 
+      // If the file is smaller, it reads the whole file.
+      reader.readAsArrayBuffer(file.slice(0, 1024 * 1024));
+    });
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsLoading(true);
+
+    const detectedEncoding = await detectEncoding(file);
+    setEncoding(detectedEncoding);
 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       dynamicTyping: true,
       preview: 50,
+      encoding: detectedEncoding,
       complete: (results) => {
         const headers = results.meta.fields || [];
         const rows = results.data.map((row: any) => 
@@ -88,14 +122,17 @@ export function DataSourcePanel() {
           onChange={handleFileUpload}
         />
         
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isLoading}
-          className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-indigo-800 disabled:text-slate-500 dark:disabled:text-slate-400 text-white py-2 px-4 rounded-md transition-colors cursor-pointer shrink-0"
-        >
-          <Upload size={16} />
-          <span>{isLoading ? 'Loading...' : 'Upload CSV'}</span>
-        </button>
+        <div className="flex flex-col gap-2">
+          {/* We keep encoding in state for debugging or extension if needed, but it's hidden from the user to simplify UX */}
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-indigo-800 disabled:text-slate-500 dark:disabled:text-slate-400 text-white py-2 px-4 rounded-md transition-colors cursor-pointer shrink-0"
+          >
+            <Upload size={16} />
+            <span>{isLoading ? 'Loading...' : 'Upload CSV'}</span>
+          </button>
+        </div>
 
         <div className={`grid gap-4 ${isMaximized ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
           {dataSources.map((ds) => (
