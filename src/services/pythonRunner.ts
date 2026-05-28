@@ -56,10 +56,7 @@ def run_user_code():
     data_dicts = json.loads(input_json)
     df = pd.DataFrame(data_dicts)
     
-    # Auto-convert string columns to numeric where possible
-    for col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors='ignore')
-    
+    # Create globals for user code
     user_globals = {'pd': pd, 'df': df}
     
     # Safely pass the user code
